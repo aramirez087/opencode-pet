@@ -204,9 +204,9 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
   try {
     api.slots.register({
       slots: {
-        session_prompt: (
+        session_prompt_right: (
           _ctx: TuiSlotContext,
-          props: TuiHostSlotMap["session_prompt"],
+          props: TuiHostSlotMap["session_prompt_right"],
         ): JSX.Element => {
           const [busy, setBusy] = createSignal(false);
           const [frameIdx, setFrameIdx] = createSignal(0);
