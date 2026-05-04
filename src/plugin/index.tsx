@@ -197,6 +197,8 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
 
   refreshActivePet();
 
+  ensureSpritesInstalled(api.kv, refreshActivePet, safeToast).catch(() => {});
+
   try {
     api.command.register(() => {
       try {
@@ -252,10 +254,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             slash: { name: `pet-${pet.manifest.id}`, aliases: [`pet:${pet.manifest.id}`] },
             onSelect: () => {
               setActivePetId(api.kv, pet.manifest.id);
-  refreshActivePet();
-
-  // Auto-install curated sprites on first use so the user has pets immediately.
-  ensureSpritesInstalled(api.kv, refreshActivePet, safeToast).catch(() => {});
+              refreshActivePet();
               safeToast(`Switched to ${pet.manifest.displayName}`, "success");
             },
           })),
