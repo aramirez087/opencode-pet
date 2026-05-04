@@ -1,8 +1,8 @@
-# opencode-pet
+# 🐾 opencode-pet
 
-> **Bring Codex pets to OpenCode** — animated terminal companions that appear while models think.
+> **Your AI model shouldn't have to think alone.** — adorable animated pets that hang out in your terminal while the model works.
 
-Turns Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into OpenCode TUI plugins that render the pet in your terminal whenever the model is processing.
+Turns Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into OpenCode TUI plugins that render the pet in your terminal whenever the model is processing. Because every coder deserves a little companion while they wait.
 
 ## Quick start
 
@@ -20,25 +20,45 @@ opencode-pet generate
 # 4. Open OpenCode — your pet animates while the model thinks
 ```
 
-## What is this?
+## 🤔 What is this?
 
-`opencode-pet` adds a small animated pet companion to [OpenCode](https://github.com/opencode-ai/opencode) that appears above the prompt area whenever the AI model is busy thinking. It works by:
+`opencode-pet` adds a small animated pet companion to [OpenCode](https://github.com/opencode-ai/opencode) that appears to the **right of the session prompt** whenever the AI model is busy thinking. It works by:
 
-1. **Converting** Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into terminal-friendly frames
-2. **Rendering** those frames in the OpenCode TUI using Unicode block characters (`▀▄█`) with full ANSI color support
-3. **Animating** the frames in sync with the model's busy/idle state
+1. 🐱 **Curating** a library of hand-designed kawaii sprites (cat, fox, ghost, slime, robot, dragon, bunny, octopus, penguin, mushroom)
+2. 🎨 **Converting** Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into terminal-friendly frames (legacy path)
+3. ✨ **Rendering** frames in the OpenCode TUI using Unicode block characters (`▀▄█`) with full ANSI color support
+4. 💫 **Animating** in sync with the model's busy/idle state
 
-A bundled fallback pet ships with the plugin so you see something immediately, even before generating or converting your own pet.
+The pet renders inside a fixed 16×6 cell box with overflow clipping so it always fits cleanly next to the prompt — no wrapping or doubling. A bundled curated fallback pet ships with the plugin so you see something adorable immediately.
+
+## 🐾 Available pets
+
+| Pet | Vibe |
+|-----|------|
+| 🐱 Mochi Cat | Chill, observant, always watching your code |
+| 🦊 Pixel Fox | Sly and curious, loves a good algorithm |
+| 👻 Tiny Ghost | Boo! Just floating by, no harm intended |
+| 🍡 Blobby Slime | Wobbly, cheerful, loves terminal colors |
+| 🤖 Retro Bot | Beep boop. You're doing great. |
+| 🐉 Mini Dragon | Tiny flames, big dreams |
+| 🐰 Bunny | Soft ears, faster than your build times |
+| 🐙 Octopus | Many hands, all typing at once |
+| 🐧 Penguin | Slides through your terminal with style |
+| 🍄 Shroom | Fungi friends don't lie — your code is fine |
+
+Or generate a random pet with `opencode-pet generate`!
 
 ## CLI reference
 
 | Command | Description |
 |---------|-------------|
+| `opencode-pet sprites` | List bundled curated sprites |
+| `opencode-pet install <id>` | Install a curated sprite as a pet |
+| `opencode-pet generate` | Procedurally generate a random pet |
 | `opencode-pet convert <path>` | Convert a Codex pet spritesheet |
 | `opencode-pet list` | List installed pets |
 | `opencode-pet preview <id>` | Preview a pet in your terminal |
 | `opencode-pet remove <id>` | Remove a pet |
-| `opencode-pet generate` | Procedurally generate a random pet |
 
 ### Convert flags
 
@@ -92,6 +112,7 @@ Re-launch OpenCode to pick up the change.
 |---------|--------------|
 | `/pet` | Open the pet picker to switch active pet |
 | `/pet-generate` | Procedurally generate a new pet |
+| `/pet-remove` | Open a picker to delete an installed pet |
 | `/pet-debug` | Show diagnostic info (pet count, active id, KV status) |
 
 ## Architecture
@@ -128,6 +149,10 @@ opencode-pet/
    - Top empty, bottom filled → `▄` (lower half block)
    - Both empty → ` ` (space, transparent)
 5. **Coloring** — Each cell gets ANSI escape codes in the selected color mode. Adjacent cells with the same colors reuse existing codes to minimize output size.
+
+## Why pets?
+
+Because waiting for an AI to think shouldn't feel like staring at an empty screen. A pet gives you a tiny visual cue that something is happening, and maybe a smile while you wait. 🐾
 
 ## Requirements
 

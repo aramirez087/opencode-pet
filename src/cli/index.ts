@@ -9,6 +9,7 @@ import { generatePet, generatePetName, type PetTemplate } from "../converter/gen
 import { mkdirSync, writeFileSync } from "node:fs";
 import type { OpenCodePetManifest } from "../types.js";
 import { CONVERTER_VERSION as CV } from "../types.js";
+import { SPRITES, findSprite, spriteToManifest } from "../converter/sprites.js";
 
 function printHelp(): void {
   console.log(`opencode-pet v${CV} — Codex pets for OpenCode
@@ -16,6 +17,8 @@ function printHelp(): void {
 Usage:
   opencode-pet convert <codex-pet-dir> [options]   Convert a Codex pet
   opencode-pet generate [options]                   Generate a new procedural pet
+  opencode-pet sprites                              List curated sprite designs
+  opencode-pet install <sprite-id> [options]        Install a curated sprite as a pet
   opencode-pet list [options]                       List installed pets
   opencode-pet remove <pet-id>                      Remove an installed pet
   opencode-pet preview <pet-id>                     Preview a pet in the terminal
@@ -53,6 +56,8 @@ Examples:
   opencode-pet generate
   opencode-pet generate --type cat --colors pink
   opencode-pet generate --type ghost --animation blink --features 2
+  opencode-pet sprites
+  opencode-pet install mochi-cat
   opencode-pet list
   opencode-pet remove green-desk-buddy
   opencode-pet preview green-desk-buddy
@@ -224,6 +229,48 @@ async function main(): Promise<void> {
       console.log(`  Name: ${name}`);
       console.log(`  Frames: ${manifest.frameCount}`);
       console.log(`  Size: ${ow}x${oh} characters`);
+      break;
+    }
+
+    case "sprites": {
+      console.log("Curated sprites:\n");
+      for (const sprite of SPRITES) {
+        console.log(`  ${sprite.id}`);
+        console.log(`    Name: ${sprite.displayName}`);
+        console.log(`    ${sprite.description}`);
+        console.log(`    Frames: ${sprite.frames.length}`);
+        console.log();
+      }
+      console.log("Install one with: opencode-pet install <sprite-id>");
+      break;
+    }
+
+    case "install": {
+      const spriteId = positional[0];
+      if (!spriteId) {
+        console.error("Error: Missing sprite id. Usage: opencode-pet install <sprite-id>");
+        process.exit(1);
+      }
+      const sprite = findSprite(spriteId);
+      if (!sprite) {
+        console.error(`Error: Unknown sprite "${spriteId}". Run 'opencode-pet sprites' to list available sprites.`);
+        process.exit(1);
+      }
+
+      const outputDir = (options["output"] || options["o"] || join(homedir(), PETS_DIR)) as string;
+      const petDir = join(outputDir, sprite.id);
+      if (existsSync(petDir) && !options["force"] && !options["f"]) {
+        console.error(`Error: Pet "${sprite.id}" already exists at ${petDir}. Use --force to overwrite.`);
+        process.exit(1);
+      }
+
+      const manifest = spriteToManifest(sprite);
+      mkdirSync(petDir, { recursive: true });
+      writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest, null, 2), "utf-8");
+
+      console.log(`Installed ${sprite.id} → ${petDir}`);
+      console.log(`  Name: ${sprite.displayName}`);
+      console.log(`  Frames: ${manifest.frameCount}`);
       break;
     }
 

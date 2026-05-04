@@ -19,6 +19,8 @@ import {
 } from "./pet-loader.js";
 import type { LoadedPet } from "./pet-loader.js";
 import type { PetTemplate } from "../converter/generator.js";
+import { PET_HEIGHT, PET_WIDTH } from "../types.js";
+import type { OpenCodePetManifest } from "../types.js";
 
 type AnsiSegment = { text: string; fg?: string; bg?: string };
 
@@ -76,6 +78,62 @@ function parseAnsiLine(line: string): AnsiSegment[] {
   }
   pushText(line.slice(lastIndex));
   return segments;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace(/^#/, "");
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+// Clip a frame to fit within (width × height) visible cells. Center-crops
+// both axes so a legacy 30×16 pet shows its head/eyes region instead of the
+// top-left corner. Preserves ANSI escape codes around each kept run.
+function clipFrame(lines: string[], width: number, height: number): string[] {
+  if (lines.length === 0) return lines;
+  const visibleH = Math.min(lines.length, height);
+  const top = Math.floor((lines.length - visibleH) / 2);
+  return lines.slice(top, top + visibleH).map((line) => clipLine(line, width));
+}
+
+function clipLine(line: string, width: number): string {
+  const segments = parseAnsiLine(line);
+  const totalWidth = segments.reduce((sum, s) => sum + s.text.length, 0);
+  if (totalWidth <= width) return line;
+
+  const skip = Math.floor((totalWidth - width) / 2);
+  let consumed = 0;
+  let kept = 0;
+  let out = "";
+
+  for (const seg of segments) {
+    const segStart = consumed;
+    consumed += seg.text.length;
+    if (consumed <= skip) continue;
+    if (kept >= width) break;
+
+    const localStart = Math.max(0, skip - segStart);
+    const localEnd = Math.min(seg.text.length, localStart + (width - kept));
+    const chunk = seg.text.slice(localStart, localEnd);
+    if (chunk.length === 0) continue;
+
+    if (seg.fg) {
+      const { r, g, b } = hexToRgb(seg.fg);
+      out += `\x1b[38;2;${r};${g};${b}m`;
+    }
+    if (seg.bg) {
+      const { r, g, b } = hexToRgb(seg.bg);
+      out += `\x1b[48;2;${r};${g};${b}m`;
+    }
+    if (!seg.fg && !seg.bg) out += "\x1b[0m";
+    out += chunk;
+    kept += chunk.length;
+  }
+  out += "\x1b[0m";
+  return out;
 }
 
 function ansi256ToHex(idx: number): string {
@@ -159,6 +217,14 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             category: "Pets",
             slash: { name: "pet-generate", aliases: ["pet-new"] },
             onSelect: () => generateRandomPet(api, refreshActivePet, safeToast),
+          },
+          {
+            title: "Remove Pet...",
+            value: "opencode-pet:remove",
+            description: "Delete an installed pet from disk",
+            category: "Pets",
+            slash: { name: "pet-remove", aliases: ["pet-delete"] },
+            onSelect: () => showPetRemover(api, refreshActivePet, safeToast),
           },
           {
             title: "Pet Debug Info",
@@ -248,10 +314,21 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             return frames[frameIdx() % frames.length] ?? [];
           });
 
+          const visibleFrame = createMemo<string[]>(() => {
+            const lines = currentFrame();
+            if (lines.length === 0) return lines;
+            return clipFrame(lines, PET_WIDTH, PET_HEIGHT);
+          });
+
           return (
-            <box flexDirection="column">
+            <box
+              flexDirection="column"
+              width={PET_WIDTH}
+              height={PET_HEIGHT}
+              overflow="hidden"
+            >
               <Show when={busy() && activePet() !== null}>
-                <Index each={currentFrame()}>
+                <Index each={visibleFrame()}>
                   {(line) => (
                     <text>
                       <Index each={parseAnsiLine(line())}>
@@ -308,6 +385,54 @@ function showPetPicker(api: TuiPluginApi, refresh: () => void, toast: ToastFn): 
   );
 }
 
+function showPetRemover(api: TuiPluginApi, refresh: () => void, toast: ToastFn): void {
+  const pets = findPets();
+  if (pets.length === 0) {
+    toast("No pets to remove.", "info");
+    return;
+  }
+
+  const activeId = getActivePetId(api.kv);
+  api.ui.dialog.replace(
+    () =>
+      api.ui.DialogSelect({
+        title: "Remove Pet (cannot be undone)",
+        options: pets.map((pet) => ({
+          title: `${pet.manifest.displayName}${pet.manifest.id === activeId ? " ★" : ""}`,
+          value: pet.manifest.id,
+          description: pet.manifest.description || `${pet.manifest.frameCount} frames · ${pet.path}`,
+        })),
+        onSelect: async (option) => {
+          api.ui.dialog.clear();
+          try {
+            const target = pets.find((p) => p.manifest.id === option.value);
+            if (!target) {
+              toast(`Pet "${option.value}" not found.`, "error");
+              return;
+            }
+            const { rmSync } = await import("node:fs");
+            rmSync(target.path, { recursive: true, force: true });
+
+            if (activeId === target.manifest.id) {
+              const remaining = findPets();
+              const next = remaining[0];
+              setActivePetId(api.kv, next ? next.manifest.id : "");
+            }
+
+            refresh();
+            toast(`Removed "${target.manifest.displayName}"`, "success");
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            toast(`Failed to remove pet: ${msg}`, "error");
+          }
+        },
+      }),
+    () => {
+      // on close
+    },
+  );
+}
+
 async function generateRandomPet(api: TuiPluginApi, refresh: () => void, toast: ToastFn): Promise<void> {
   toast("Generating new pet...", "info");
 
@@ -316,47 +441,64 @@ async function generateRandomPet(api: TuiPluginApi, refresh: () => void, toast: 
     const { join } = await import("node:path");
     const { homedir } = await import("node:os");
 
-    const { generatePet, generatePetName } = await import("../converter/generator.js");
     const { PETS_DIR, CONVERTER_VERSION } = await import("../types.js");
 
-    const bodies = ["blob", "cat", "ghost", "robot", "bunny"] as const;
-    const colors = ["green", "blue", "pink", "purple", "orange", "teal"] as const;
-    const anims = ["bounce", "wave", "blink", "wiggle"] as const;
+    // 70% curated sprite, 30% procedural — curated produces nicer pixel art at this size.
+    const useSprite = Math.random() < 0.7;
+    let petId: string;
+    let displayName: string;
+    let manifest: OpenCodePetManifest;
 
-    const rand = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
-    const template: PetTemplate = {
-      body: rand(bodies),
-      colors: rand(colors),
-      features: Math.floor(Math.random() * 2) + 1,
-      animation: rand(anims),
-    };
+    if (useSprite) {
+      const { SPRITES, spriteToManifest } = await import("../converter/sprites.js");
+      const sprite = SPRITES[Math.floor(Math.random() * SPRITES.length)]!;
+      // Append a short suffix so re-rolls don't collide on the same id.
+      const suffix = Math.random().toString(36).slice(2, 5);
+      petId = `${sprite.id}-${suffix}`;
+      displayName = sprite.displayName;
+      const base = spriteToManifest(sprite);
+      manifest = { ...base, id: petId, displayName };
+    } else {
+      const { generatePet, generatePetName } = await import("../converter/generator.js");
 
-    const name = generatePetName(template);
-    const petId = name.toLowerCase().replace(/\s+/g, "-");
-    const frames = generatePet(template, 30, 16, "truecolor");
+      const bodies = ["blob", "cat", "ghost", "robot", "bunny"] as const;
+      const colors = ["green", "blue", "pink", "purple", "orange", "teal"] as const;
+      const anims = ["bounce", "wave", "blink", "wiggle"] as const;
+
+      const rand = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+      const template: PetTemplate = {
+        body: rand(bodies),
+        colors: rand(colors),
+        features: Math.floor(Math.random() * 2) + 1,
+        animation: rand(anims),
+      };
+
+      displayName = generatePetName(template);
+      petId = displayName.toLowerCase().replace(/\s+/g, "-");
+      const frames = generatePet(template, PET_WIDTH, PET_HEIGHT, "truecolor");
+
+      manifest = {
+        id: petId,
+        displayName,
+        description: `A procedurally generated ${template.body} pet with ${template.colors} colors.`,
+        source: "codex",
+        frames,
+        frameCount: frames.length,
+        cols: 0,
+        rows: 0,
+        convertedAt: new Date().toISOString(),
+        converterVersion: CONVERTER_VERSION,
+      };
+    }
 
     const petDir = join(homedir(), PETS_DIR, petId);
     mkdirSync(petDir, { recursive: true });
-
-    const manifest = {
-      id: petId,
-      displayName: name,
-      description: `A procedurally generated ${template.body} pet with ${template.colors} colors.`,
-      source: "codex" as const,
-      frames,
-      frameCount: frames.length,
-      cols: 0,
-      rows: 0,
-      convertedAt: new Date().toISOString(),
-      converterVersion: CONVERTER_VERSION,
-    };
-
     writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest), "utf-8");
 
     setActivePetId(api.kv, petId);
     refresh();
 
-    toast(`Created "${name}" — your new companion is ready!`, "success");
+    toast(`Created "${displayName}" — your new companion is ready!`, "success");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     toast(`Failed to generate pet: ${msg}`, "error");
