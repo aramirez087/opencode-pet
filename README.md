@@ -13,9 +13,13 @@ npm install -g opencode-pet
 # 2. Generate a pet (or convert your own)
 opencode-pet generate
 
-# 3. Point OpenCode at the plugin
-# Edit ~/.config/opencode/opencode.json:
-#   "plugin": ["file:/absolute/path/to/opencode-pet"]
+# 3. Plugin setup (pick one)
+
+## Option A — Symlink (recommended)
+ln -s "$(npm root -g)/opencode-pet" ~/.config/opencode/plugins/opencode-pet
+
+## Option B — Direct path in ~/.config/opencode/opencode.json:
+#  { "plugin": ["file:/absolute/path/to/node_modules/opencode-pet"] }
 
 # 4. Open OpenCode — your pet animates while the model thinks
 ```
@@ -81,7 +85,7 @@ Add the plugin to your OpenCode config at `~/.config/opencode/opencode.json` (or
 ### Option 1 — Symlink (recommended)
 
 ```bash
-ln -s /absolute/path/to/opencode-pet ~/.config/opencode/plugins/opencode-pet
+ln -s "$(npm root -g)/opencode-pet" ~/.config/opencode/plugins/opencode-pet
 ```
 
 OpenCode auto-discovers plugins in `~/.config/opencode/plugins/`. No config edit needed.
@@ -90,13 +94,17 @@ OpenCode auto-discovers plugins in `~/.config/opencode/plugins/`. No config edit
 
 ```jsonc
 {
-  "plugin": ["file:/absolute/path/to/opencode-pet"]
+  "plugin": ["file:$(npm root -g)/opencode-pet"]
 }
 ```
 
 Re-launch OpenCode to pick up the change.
 
-### Option 3 — From npm (future)
+### Option 3 — From npm
+
+```bash
+npm install -g opencode-pet
+```
 
 ```jsonc
 {
@@ -104,7 +112,7 @@ Re-launch OpenCode to pick up the change.
 }
 ```
 
-> The package is not on npm yet. Use option 1 or 2.
+> The package is not on npm yet. Use option 1 or 2 above.
 
 ## Slash commands
 

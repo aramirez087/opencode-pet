@@ -5,7 +5,7 @@
   "type": "module",
   "types": "./src/plugin/index.tsx",
   "bin": {
-    "opencode-pet": "./dist/cli/index.js"
+    "opencode-pet": "dist/cli/index.js"
   },
   "exports": {
     "./tui": "./dist/plugin/index.js"
@@ -40,7 +40,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/anomalyco/opencode-pet"
+    "url": "git+https://github.com/aramirez087/opencode-pet.git"
   },
   "license": "MIT",
   "dependencies": {
