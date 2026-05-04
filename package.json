@@ -3,31 +3,25 @@
   "version": "1.0.0",
   "description": "Bring Codex pets to OpenCode — animated terminal companions that appear while models think",
   "type": "module",
-  "main": "./src/plugin/index.tsx",
+  "main": "./dist/plugin/index.js",
   "types": "./src/plugin/index.tsx",
   "bin": {
     "opencode-pet": "./dist/cli/index.js"
   },
   "exports": {
     ".": {
-      "import": "./src/plugin/index.tsx",
+      "import": "./dist/plugin/index.js",
       "types": "./src/plugin/index.tsx"
     }
   },
   "files": [
-    "src/plugin",
-    "src/converter",
-    "src/types.ts",
-    "dist/cli",
-    "dist/converter",
-    "dist/types.js",
-    "dist/types.d.ts",
+    "dist",
     "assets",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node ./scripts/build-plugin.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.plugin.json",
     "generate-default-pet": "node ./scripts/generate-default-pet.mjs",
     "prepublishOnly": "npm run build"
@@ -58,10 +52,13 @@
     "solid-js": ">=1.9.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@babel/preset-typescript": "^7.25.0",
     "@opencode-ai/plugin": "1.14.20",
     "@opentui/core": "^0.2.2",
     "@opentui/solid": "^0.2.2",
     "@types/node": "^22.0.0",
+    "babel-preset-solid": "^1.9.0",
     "solid-js": "^1.9.0",
     "typescript": "^5.8.0"
   }
