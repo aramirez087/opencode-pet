@@ -1,0 +1,68 @@
+{
+  "name": "opencode-pet",
+  "version": "1.0.0",
+  "description": "Bring Codex pets to OpenCode — animated terminal companions that appear while models think",
+  "type": "module",
+  "main": "./src/plugin/index.tsx",
+  "types": "./src/plugin/index.tsx",
+  "bin": {
+    "opencode-pet": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/plugin/index.tsx",
+      "types": "./src/plugin/index.tsx"
+    }
+  },
+  "files": [
+    "src/plugin",
+    "src/converter",
+    "src/types.ts",
+    "dist/cli",
+    "dist/converter",
+    "dist/types.js",
+    "dist/types.d.ts",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.plugin.json",
+    "generate-default-pet": "node ./scripts/generate-default-pet.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "opencode",
+    "codex",
+    "pet",
+    "companion",
+    "terminal",
+    "animation",
+    "thinking",
+    "ai",
+    "open source"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode-pet"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.33.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.14.0",
+    "@opentui/core": ">=0.1.99",
+    "@opentui/solid": ">=0.1.99",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.14.20",
+    "@opentui/core": "^0.2.2",
+    "@opentui/solid": "^0.2.2",
+    "@types/node": "^22.0.0",
+    "solid-js": "^1.9.0",
+    "typescript": "^5.8.0"
+  }
+}
