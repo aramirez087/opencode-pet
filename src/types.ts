@@ -48,5 +48,7 @@ export interface PetListEntry {
 export const CONVERTER_VERSION = "1.0.0";
 export const PETS_DIR = ".opencode/pets";
 
+export type PetMood = "thinking" | "confused" | "happy" | "idle";
+
 export const PET_WIDTH = 16;
 export const PET_HEIGHT = 6;

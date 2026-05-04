@@ -2,7 +2,6 @@
 import {
   createSignal,
   createMemo,
-  createEffect,
   onCleanup,
   onMount,
   Show,
@@ -20,7 +19,7 @@ import {
 import type { LoadedPet } from "./pet-loader.js";
 import type { PetTemplate } from "../converter/generator.js";
 import { PET_HEIGHT, PET_WIDTH, PETS_DIR } from "../types.js";
-import type { OpenCodePetManifest } from "../types.js";
+import type { OpenCodePetManifest, PetMood } from "../types.js";
 import { SPRITES, spriteToManifest } from "../converter/sprites.js";
 
 type AnsiSegment = { text: string; fg?: string; bg?: string };
@@ -158,6 +157,36 @@ function ansi256ToHex(idx: number): string {
   return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
+// ─── Adaptive frame delay ─────────────────────────────────────
+
+function detectTerminalFps(): number {
+  const term = (typeof process !== "undefined" && process.env.TERM) || "";
+  const termProgram = (typeof process !== "undefined" && process.env.TERM_PROGRAM) || "";
+  const isTmux = !!(typeof process !== "undefined" && process.env.TMUX);
+  const isScreen = !!(typeof process !== "undefined" && process.env.STY);
+
+  if (isTmux || isScreen) return 8;
+  if (term === "xterm-kitty") return 12;
+  if (term === "alacritty") return 12;
+  if (termProgram === "WezTerm") return 12;
+  if (termProgram === "WarpTerminal") return 12;
+  if (typeof process !== "undefined" && process.env.WT_SESSION) return 8;
+  return 10;
+}
+
+// ─── Mood-aware animation ─────────────────────────────────────
+
+const MOOD_REACTION_LINGER = 1500;
+
+function moodFps(mood: PetMood, baseFps: number): number {
+  switch (mood) {
+    case "thinking": return baseFps;
+    case "happy": return Math.min(baseFps + 2, 14);
+    case "confused": return Math.max(baseFps - 4, 5);
+    case "idle": return 2;
+  }
+}
+
 const [activePet, setActivePet] = createSignal<LoadedPet | null>(null);
 
 const tui = async (api: TuiPluginApi): Promise<void> => {
@@ -277,36 +306,77 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
           _ctx: TuiSlotContext,
           props: TuiHostSlotMap["session_prompt_right"],
         ): JSX.Element => {
-          const [busy, setBusy] = createSignal(false);
+          const [mood, setMood] = createSignal<PetMood>("idle");
+          const [visible, setVisible] = createSignal(false);
           const [frameIdx, setFrameIdx] = createSignal(0);
+
+          let moodTimer: ReturnType<typeof setTimeout> | undefined;
+          let animTimer: ReturnType<typeof setTimeout> | undefined;
+
+          function clearTimers(): void {
+            if (moodTimer) { clearTimeout(moodTimer); moodTimer = undefined; }
+            if (animTimer) { clearTimeout(animTimer); animTimer = undefined; }
+          }
+
+          function startAnimation(fps: number): void {
+            if (animTimer) { clearTimeout(animTimer); animTimer = undefined; }
+            const delay = Math.max(50, Math.floor(1000 / fps));
+            let stopped = false;
+
+            function tick(): void {
+              if (stopped) return;
+              const pet = activePet();
+              if (!pet || pet.manifest.frames.length === 0) return;
+              setFrameIdx((i) => (i + 1) % pet.manifest.frames.length);
+              animTimer = setTimeout(tick, delay);
+            }
+            animTimer = setTimeout(tick, delay);
+          }
+
+          function transitionMood(next: PetMood): void {
+            if (moodTimer) { clearTimeout(moodTimer); moodTimer = undefined; }
+            setMood(next);
+
+            const pet = activePet();
+            if (!pet || pet.manifest.frames.length === 0) {
+              setVisible(false);
+              clearTimers();
+              return;
+            }
+
+            setVisible(true);
+            const baseFps = detectTerminalFps();
+            const fps = moodFps(next, baseFps);
+            startAnimation(fps);
+
+            if (next === "happy" || next === "confused") {
+              moodTimer = setTimeout(() => transitionMood("idle"), MOOD_REACTION_LINGER);
+            }
+          }
 
           onMount(() => {
             const unsubStatus = api.event.on("session.status", (event) => {
               if (event.properties.sessionID !== props.session_id) return;
-              setBusy(event.properties.status.type === "busy");
+              const type = event.properties.status.type as string;
+              if (type === "busy") {
+                transitionMood("thinking");
+              } else if (type === "error") {
+                transitionMood("confused");
+              } else {
+                transitionMood("happy");
+              }
             });
             const unsubIdle = api.event.on("session.idle", (event) => {
               if (event.properties.sessionID !== props.session_id) return;
-              setBusy(false);
-              setFrameIdx(0);
+              if (mood() === "thinking") {
+                transitionMood("idle");
+              }
             });
             onCleanup(() => {
               unsubStatus();
               unsubIdle();
+              clearTimers();
             });
-          });
-
-          createEffect(() => {
-            if (!busy()) return;
-            const pet = activePet();
-            if (!pet || pet.manifest.frames.length === 0) return;
-
-            const fps = 10;
-            const delay = Math.max(50, Math.floor(1000 / fps));
-            const interval = setInterval(() => {
-              setFrameIdx((i) => (i + 1) % pet.manifest.frames.length);
-            }, delay);
-            onCleanup(() => clearInterval(interval));
           });
 
           const currentFrame = createMemo<string[]>(() => {
@@ -330,7 +400,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
               height={PET_HEIGHT}
               overflow="hidden"
             >
-              <Show when={busy() && activePet() !== null}>
+              <Show when={visible() && activePet() !== null}>
                 <Index each={visibleFrame()}>
                   {(line) => (
                     <text>
