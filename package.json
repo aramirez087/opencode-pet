@@ -16,6 +16,7 @@
     "src/types.ts",
     "dist/cli",
     "dist/converter",
+    "dist/plugin",
     "dist/types.js",
     "assets",
     "README.md",
@@ -44,22 +45,20 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@opentui/core": "^0.2.2",
     "sharp": "^0.33.0"
   },
   "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.14.0",
-    "@opentui/core": ">=0.1.99",
-    "@opentui/solid": ">=0.1.99",
-    "solid-js": ">=1.9.0"
+    "@opencode-ai/plugin": ">=1.14.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@babel/preset-typescript": "^7.25.0",
     "@opencode-ai/plugin": "1.14.20",
-    "@opentui/core": "^0.2.2",
     "@opentui/solid": "^0.2.2",
     "@types/node": "^22.0.0",
     "babel-preset-solid": "^1.9.0",
+    "esbuild": "^0.25.12",
     "solid-js": "^1.9.0",
     "typescript": "^5.8.0"
   }

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { transformAsync } from "@babel/core";
 import solid from "babel-preset-solid";
 import ts from "@babel/preset-typescript";
+import * as esbuild from "esbuild";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
@@ -18,6 +19,7 @@ const targets = [
 
 mkdirSync(outDir, { recursive: true });
 
+// --- Step 1: Compile TypeScript + Solid JSX with Babel ---
 for (const { in: inFile, out: outFile } of targets) {
   const inPath = join(srcDir, inFile);
   const outPath = join(outDir, outFile);
@@ -38,3 +40,30 @@ for (const { in: inFile, out: outFile } of targets) {
   writeFileSync(outPath, result.code, "utf-8");
   console.log(`compiled ${inFile} -> ${outFile} (${result.code.length} bytes)`);
 }
+
+// --- Step 2: Bundle with esbuild for self-contained global install ---
+// Bundles solid-js, @opentui/solid and transitive deps into one file
+// so the plugin works when installed globally (no peer-dep resolution needed).
+const bundleEntry = join(outDir, "index.js");
+const bundled = await esbuild.build({
+  entryPoints: [bundleEntry],
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  external: ["node:*", "@opentui/core", "@opentui/core/*"],
+  outfile: bundleEntry,
+  write: true,
+  allowOverwrite: true,
+});
+
+if (bundled.errors.length > 0) {
+  console.error("esbuild bundle errors:", bundled.errors);
+  process.exit(1);
+}
+if (bundled.warnings.length > 0) {
+  console.warn("esbuild bundle warnings:", bundled.warnings);
+}
+
+// Read bundled size
+const bundledCode = readFileSync(bundleEntry, "utf-8");
+console.log(`bundled plugin -> index.js (${bundledCode.length} bytes)`);

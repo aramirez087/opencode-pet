@@ -100,7 +100,7 @@ OpenCode auto-discovers plugins in `~/.config/opencode/plugins/`. No config edit
 
 Re-launch OpenCode to pick up the change.
 
-### Option 3 — From npm
+### Option 3 — From npm (plugin name)
 
 ```bash
 npm install -g opencode-pet
@@ -112,7 +112,7 @@ npm install -g opencode-pet
 }
 ```
 
-> The package is not on npm yet. Use option 1 or 2 above.
+> For global installs, the plugin bundles `solid-js` and `@opentui/solid` so peer dependency resolution is not required.
 
 ## Slash commands
 
