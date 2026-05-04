@@ -22,7 +22,7 @@ import type { PetTemplate } from "../converter/generator.js";
 
 const [activePet, setActivePet] = createSignal<LoadedPet | null>(null);
 
-export const tui = async (api: TuiPluginApi): Promise<void> => {
+const tui = async (api: TuiPluginApi): Promise<void> => {
   const lastError = { message: "" };
 
   const safeToast = (message: string, variant: "info" | "success" | "warning" | "error") => {
@@ -186,6 +186,8 @@ export const tui = async (api: TuiPluginApi): Promise<void> => {
     safeToast(`opencode-pet failed to register slot: ${lastError.message}`, "error");
   }
 };
+
+export default { tui };
 
 type ToastFn = (message: string, variant: "info" | "success" | "warning" | "error") => void;
 

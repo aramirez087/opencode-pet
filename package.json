@@ -3,19 +3,20 @@
   "version": "1.0.0",
   "description": "Bring Codex pets to OpenCode — animated terminal companions that appear while models think",
   "type": "module",
-  "main": "./dist/plugin/index.js",
   "types": "./src/plugin/index.tsx",
   "bin": {
     "opencode-pet": "./dist/cli/index.js"
   },
   "exports": {
-    ".": {
-      "import": "./dist/plugin/index.js",
-      "types": "./src/plugin/index.tsx"
-    }
+    "./tui": "./dist/plugin/index.js"
   },
   "files": [
-    "dist",
+    "src/plugin",
+    "src/converter",
+    "src/types.ts",
+    "dist/cli",
+    "dist/converter",
+    "dist/types.js",
     "assets",
     "README.md",
     "LICENSE"
