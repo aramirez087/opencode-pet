@@ -20,6 +20,85 @@ import {
 import type { LoadedPet } from "./pet-loader.js";
 import type { PetTemplate } from "../converter/generator.js";
 
+type AnsiSegment = { text: string; fg?: string; bg?: string };
+
+const ANSI_RE = /\x1b\[([0-9;]*)m/g;
+
+function parseAnsiLine(line: string): AnsiSegment[] {
+  const segments: AnsiSegment[] = [];
+  let fg: string | undefined;
+  let bg: string | undefined;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  ANSI_RE.lastIndex = 0;
+
+  const pushText = (text: string) => {
+    if (text.length === 0) return;
+    segments.push({ text, fg, bg });
+  };
+
+  while ((match = ANSI_RE.exec(line)) !== null) {
+    pushText(line.slice(lastIndex, match.index));
+    lastIndex = match.index + match[0].length;
+
+    const params = match[1].length === 0 ? [0] : match[1].split(";").map((p) => parseInt(p, 10) || 0);
+    let i = 0;
+    while (i < params.length) {
+      const code = params[i]!;
+      if (code === 0) {
+        fg = undefined;
+        bg = undefined;
+        i += 1;
+      } else if (code === 39) {
+        fg = undefined;
+        i += 1;
+      } else if (code === 49) {
+        bg = undefined;
+        i += 1;
+      } else if ((code === 38 || code === 48) && params[i + 1] === 2) {
+        const r = params[i + 2] ?? 0;
+        const g = params[i + 3] ?? 0;
+        const b = params[i + 4] ?? 0;
+        const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+        if (code === 38) fg = hex;
+        else bg = hex;
+        i += 5;
+      } else if ((code === 38 || code === 48) && params[i + 1] === 5) {
+        const idx = params[i + 2] ?? 0;
+        const hex = ansi256ToHex(idx);
+        if (code === 38) fg = hex;
+        else bg = hex;
+        i += 3;
+      } else {
+        i += 1;
+      }
+    }
+  }
+  pushText(line.slice(lastIndex));
+  return segments;
+}
+
+function ansi256ToHex(idx: number): string {
+  if (idx < 16) {
+    const basic = [
+      "#000000", "#800000", "#008000", "#808000", "#000080", "#800080", "#008080", "#c0c0c0",
+      "#808080", "#ff0000", "#00ff00", "#ffff00", "#0000ff", "#ff00ff", "#00ffff", "#ffffff",
+    ];
+    return basic[idx]!;
+  }
+  if (idx >= 232) {
+    const v = 8 + (idx - 232) * 10;
+    return `#${v.toString(16).padStart(2, "0").repeat(3)}`;
+  }
+  const n = idx - 16;
+  const r = Math.floor(n / 36);
+  const g = Math.floor((n % 36) / 6);
+  const b = n % 6;
+  const ramp = [0, 95, 135, 175, 215, 255];
+  const hex = (v: number) => ramp[v]!.toString(16).padStart(2, "0");
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
+}
+
 const [activePet, setActivePet] = createSignal<LoadedPet | null>(null);
 
 const tui = async (api: TuiPluginApi): Promise<void> => {
@@ -173,7 +252,15 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             <box flexDirection="column">
               <Show when={busy() && activePet() !== null}>
                 <Index each={currentFrame()}>
-                  {(line) => <text>{line()}</text>}
+                  {(line) => (
+                    <text>
+                      <Index each={parseAnsiLine(line())}>
+                        {(seg) => (
+                          <span fg={seg().fg} bg={seg().bg}>{seg().text}</span>
+                        )}
+                      </Index>
+                    </text>
+                  )}
                 </Index>
               </Show>
             </box>
