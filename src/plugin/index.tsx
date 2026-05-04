@@ -518,29 +518,26 @@ async function ensureSpritesInstalled(kv: KvWriter | undefined | null, refresh: 
     const petsDir = join(homedir(), PETS_DIR);
     if (!existsSync(petsDir)) {
       mkdirSync(petsDir, { recursive: true });
-      for (const sprite of SPRITES) {
-        const petDir = join(petsDir, sprite.id);
-        mkdirSync(petDir, { recursive: true });
-        const manifest = spriteToManifest(sprite);
-        writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest), "utf-8");
-      }
-      setActivePetId(kv, SPRITES[0]!.id);
-      refresh();
-      toast(`Welcome! Installed ${SPRITES.length} pets for you to choose from.`, "info");
-      return;
     }
 
-    const entries = readdirSync(petsDir);
-    if (entries.length === 0) {
-      for (const sprite of SPRITES) {
-        const petDir = join(petsDir, sprite.id);
-        mkdirSync(petDir, { recursive: true });
-        const manifest = spriteToManifest(sprite);
-        writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest), "utf-8");
+    const installed = new Set(readdirSync(petsDir));
+    let count = 0;
+    for (const sprite of SPRITES) {
+      if (installed.has(sprite.id)) continue;
+      const petDir = join(petsDir, sprite.id);
+      mkdirSync(petDir, { recursive: true });
+      const manifest = spriteToManifest(sprite);
+      writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest), "utf-8");
+      count += 1;
+    }
+
+    if (count > 0) {
+      const activeId = getActivePetId(kv);
+      if (!activeId) {
+        setActivePetId(kv, SPRITES[0]!.id);
       }
-      setActivePetId(kv, SPRITES[0]!.id);
       refresh();
-      toast(`Installed ${SPRITES.length} pets. Pick one with /pet!`, "info");
+      toast(`Installed ${count} new pet(s). Pick one with /pet!`, "info");
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
