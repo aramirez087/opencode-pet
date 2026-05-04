@@ -19,8 +19,9 @@ import {
 } from "./pet-loader.js";
 import type { LoadedPet } from "./pet-loader.js";
 import type { PetTemplate } from "../converter/generator.js";
-import { PET_HEIGHT, PET_WIDTH } from "../types.js";
+import { PET_HEIGHT, PET_WIDTH, PETS_DIR } from "../types.js";
 import type { OpenCodePetManifest } from "../types.js";
+import { SPRITES, spriteToManifest } from "../converter/sprites.js";
 
 type AnsiSegment = { text: string; fg?: string; bg?: string };
 
@@ -251,7 +252,10 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             slash: { name: `pet-${pet.manifest.id}`, aliases: [`pet:${pet.manifest.id}`] },
             onSelect: () => {
               setActivePetId(api.kv, pet.manifest.id);
-              refreshActivePet();
+  refreshActivePet();
+
+  // Auto-install curated sprites on first use so the user has pets immediately.
+  ensureSpritesInstalled(api.kv, refreshActivePet, safeToast).catch(() => {});
               safeToast(`Switched to ${pet.manifest.displayName}`, "success");
             },
           })),
@@ -502,5 +506,44 @@ async function generateRandomPet(api: TuiPluginApi, refresh: () => void, toast: 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     toast(`Failed to generate pet: ${msg}`, "error");
+  }
+}
+
+async function ensureSpritesInstalled(kv: KvWriter | undefined | null, refresh: () => void, toast: ToastFn): Promise<void> {
+  try {
+    const { mkdirSync, writeFileSync, readdirSync, existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { homedir } = await import("node:os");
+
+    const petsDir = join(homedir(), PETS_DIR);
+    if (!existsSync(petsDir)) {
+      mkdirSync(petsDir, { recursive: true });
+      for (const sprite of SPRITES) {
+        const petDir = join(petsDir, sprite.id);
+        mkdirSync(petDir, { recursive: true });
+        const manifest = spriteToManifest(sprite);
+        writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest), "utf-8");
+      }
+      setActivePetId(kv, SPRITES[0]!.id);
+      refresh();
+      toast(`Welcome! Installed ${SPRITES.length} pets for you to choose from.`, "info");
+      return;
+    }
+
+    const entries = readdirSync(petsDir);
+    if (entries.length === 0) {
+      for (const sprite of SPRITES) {
+        const petDir = join(petsDir, sprite.id);
+        mkdirSync(petDir, { recursive: true });
+        const manifest = spriteToManifest(sprite);
+        writeFileSync(join(petDir, "pet.json"), JSON.stringify(manifest), "utf-8");
+      }
+      setActivePetId(kv, SPRITES[0]!.id);
+      refresh();
+      toast(`Installed ${SPRITES.length} pets. Pick one with /pet!`, "info");
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`opencode-pet: failed to install sprites: ${msg}`);
   }
 }
