@@ -177,12 +177,14 @@ function detectTerminalFps(): number {
 // ─── Mood-aware animation ─────────────────────────────────────
 
 const MOOD_REACTION_LINGER = 1500;
+const TYPING_LINGER = 2000;
 
 function moodFps(mood: PetMood, baseFps: number): number {
   switch (mood) {
     case "thinking": return baseFps;
     case "happy": return Math.min(baseFps + 2, 14);
     case "confused": return Math.max(baseFps - 4, 5);
+    case "watching": return Math.max(baseFps - 5, 3);
     case "idle": return 2;
   }
 }
@@ -351,6 +353,8 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
 
             if (next === "happy" || next === "confused") {
               moodTimer = setTimeout(() => transitionMood("idle"), MOOD_REACTION_LINGER);
+            } else if (next === "watching") {
+              moodTimer = setTimeout(() => transitionMood("idle"), TYPING_LINGER);
             }
           }
 
@@ -372,9 +376,15 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
                 transitionMood("idle");
               }
             });
+            const unsubPrompt = api.event.on("tui.prompt.append", () => {
+              if (mood() !== "thinking") {
+                transitionMood("watching");
+              }
+            });
             onCleanup(() => {
               unsubStatus();
               unsubIdle();
+              unsubPrompt();
               clearTimers();
             });
           });
