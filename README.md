@@ -1,10 +1,17 @@
 # 🐾 opencode-pet
 
-> **Your AI model shouldn't have to think alone.** — adorable animated pets that hang out in your terminal while the model works.
+<div align="center">
+  <img src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" width="250" alt="Animated Typing Cat"/>
+  <br/>
+  <br/>
 
-Turns Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into OpenCode TUI plugins that render the pet in your terminal whenever the model is processing. Because every coder deserves a little companion while they wait.
+  > **Your AI model shouldn't have to think alone.**
+  > *Adorable animated pets that hang out in your terminal while the model works!* ✨
+</div>
 
-## Quick start
+Turns Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into OpenCode TUI plugins that render the pet in your terminal whenever the model is processing. Because every coder deserves a little companion while they wait. 💖
+
+## 🚀 Quick start
 
 ```bash
 # 1. Install
@@ -52,7 +59,7 @@ The pet renders inside a fixed 16×6 cell box with overflow clipping so it alway
 
 Or generate a random pet with `opencode-pet generate`!
 
-## CLI reference
+## 🛠️ CLI reference
 
 | Command | Description |
 |---------|-------------|
@@ -78,7 +85,7 @@ Or generate a random pet with `opencode-pet generate`!
 | `-f, --force` | — | Overwrite existing pet |
 | `--fps` | `10` | Animation frames per second |
 
-## Plugin setup
+## 🔌 Plugin setup
 
 Add the plugin to your OpenCode config at `~/.config/opencode/opencode.json` (or `.opencode/opencode.json` for project-scoped install):
 
@@ -114,7 +121,7 @@ npm install -g opencode-pet
 
 > For global installs, the plugin bundles `solid-js` and `@opentui/solid` so peer dependency resolution is not required.
 
-## Slash commands
+## 💬 Slash commands
 
 | Command | What it does |
 |---------|--------------|
@@ -123,7 +130,7 @@ npm install -g opencode-pet
 | `/pet-remove` | Open a picker to delete an installed pet |
 | `/pet-debug` | Show diagnostic info (pet count, active id, KV status) |
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 opencode-pet/
@@ -146,7 +153,7 @@ opencode-pet/
 └── README.md
 ```
 
-## How the converter works
+## ⚙️ How the converter works
 
 1. **Grid detection** — Auto-detects the spritesheet grid (e.g., 8×8 for standard Codex format). Override with `--cols`/`--rows`.
 2. **Frame extraction** — Uses Sharp to slice each frame from the spritesheet.
@@ -158,15 +165,15 @@ opencode-pet/
    - Both empty → ` ` (space, transparent)
 5. **Coloring** — Each cell gets ANSI escape codes in the selected color mode. Adjacent cells with the same colors reuse existing codes to minimize output size.
 
-## Why pets?
+## 🥺 Why pets?
 
 Because waiting for an AI to think shouldn't feel like staring at an empty screen. A pet gives you a tiny visual cue that something is happening, and maybe a smile while you wait. 🐾
 
-## Requirements
+## 📋 Requirements
 
 - **Node.js** >= 18 (for CLI)
 - **OpenCode** >= 1.14.0 (for plugin)
 
-## License
+## 📄 License
 
 MIT
