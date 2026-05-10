@@ -50,7 +50,7 @@ const bundled = await esbuild.build({
   bundle: true,
   format: "esm",
   platform: "node",
-  external: ["node:*", "@opentui/core", "@opentui/core/*"],
+  external: ["node:*", "@opentui/core", "@opentui/core/*", "@opentui/solid"],
   outfile: bundleEntry,
   write: true,
   allowOverwrite: true,
