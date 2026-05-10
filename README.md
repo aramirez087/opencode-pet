@@ -89,13 +89,21 @@ Or generate a random pet with `opencode-pet generate`!
 
 Add the plugin to your OpenCode config at `~/.config/opencode/opencode.json` (or `.opencode/opencode.json` for project-scoped install):
 
-### Option 1 — Symlink (recommended)
+### Option 1 — Symlink + Config (recommended)
 
 ```bash
 ln -s "$(npm root -g)/opencode-pet" ~/.config/opencode/plugins/opencode-pet
 ```
 
-OpenCode auto-discovers plugins in `~/.config/opencode/plugins/`. No config edit needed.
+Even with the symlink in place, you **must also** add the plugin to your `opencode.json`:
+
+```jsonc
+{
+  "plugin": ["opencode-pet"]
+}
+```
+
+Re-launch OpenCode to pick up the change.
 
 ### Option 2 — Direct path
 
