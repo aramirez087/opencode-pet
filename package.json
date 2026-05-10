@@ -4,6 +4,7 @@
   "description": "Bring Codex pets to OpenCode — animated terminal companions that appear while models think",
   "type": "module",
   "types": "./src/plugin/index.tsx",
+  "main": "./dist/plugin/index.js",
   "bin": {
     "opencode-pet": "dist/cli/index.js"
   },
