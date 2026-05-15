@@ -1,6 +1,6 @@
 {
   "name": "opencode-pet",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Bring Codex pets to OpenCode — animated terminal companions that appear while models think",
   "type": "module",
   "types": "./src/plugin/index.tsx",
