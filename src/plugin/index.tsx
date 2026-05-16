@@ -387,6 +387,8 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
               unsubPrompt();
               clearTimers();
             });
+
+            transitionMood("idle");
           });
 
           const currentFrame = createMemo<string[]>(() => {
