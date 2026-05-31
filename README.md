@@ -20,13 +20,8 @@ npm install -g opencode-pet
 # 2. Generate a pet (or convert your own)
 opencode-pet generate
 
-# 3. Plugin setup (pick one)
-
-## Option A — Symlink (recommended)
-ln -s "$(npm root -g)/opencode-pet" ~/.config/opencode/plugins/opencode-pet
-
-## Option B — Direct path in ~/.config/opencode/opencode.json:
-#  { "plugin": ["file:/absolute/path/to/node_modules/opencode-pet"] }
+# 3. Register the TUI plugin in ~/.config/opencode/tui.json:
+#  { "plugin": ["opencode-pet"] }
 
 # 4. Open OpenCode — your pet animates while the model thinks
 ```
@@ -87,15 +82,11 @@ Or generate a random pet with `opencode-pet generate`!
 
 ## 🔌 Plugin setup
 
-Add the plugin to your OpenCode config at `~/.config/opencode/opencode.json` (or `.opencode/opencode.json` for project-scoped install):
+`opencode-pet` is an OpenCode **TUI plugin** — it renders inside the terminal UI. TUI plugins are registered in OpenCode's `tui.json`, **not** `opencode.json`. (`opencode.json`'s `plugin` array is for server-side plugins; a TUI-only plugin placed there fails to load with `Cannot find module '@opentui/solid'`.)
 
-### Option 1 — Symlink + Config (recommended)
+### Recommended — by name in `tui.json`
 
-```bash
-ln -s "$(npm root -g)/opencode-pet" ~/.config/opencode/plugins/opencode-pet
-```
-
-Even with the symlink in place, you **must also** add the plugin to your `opencode.json`:
+Add the plugin to `~/.config/opencode/tui.json` (global) or `.opencode/tui.json` (project-scoped):
 
 ```jsonc
 {
@@ -103,31 +94,21 @@ Even with the symlink in place, you **must also** add the plugin to your `openco
 }
 ```
 
-Re-launch OpenCode to pick up the change.
+OpenCode resolves the name from npm and loads it as a TUI plugin. Re-launch OpenCode to pick up the change.
 
-### Option 2 — Direct path
+> You still need `npm install -g opencode-pet` for the `opencode-pet` **CLI** (generating/converting pets). The plugin itself is fetched by OpenCode from the name above.
 
-```jsonc
-{
-  "plugin": ["file:$(npm root -g)/opencode-pet"]
-}
-```
+### Local development
 
-Re-launch OpenCode to pick up the change.
-
-### Option 3 — From npm (plugin name)
-
-```bash
-npm install -g opencode-pet
-```
+To run a local build, point `tui.json` at a directory laid out like an install **without** a `node_modules` that contains `solid-js` or `@opentui/solid`:
 
 ```jsonc
 {
-  "plugin": ["opencode-pet"]
+  "plugin": ["file:/absolute/path/to/built-plugin-dir"]
 }
 ```
 
-> For global installs, the plugin bundles `solid-js` and `@opentui/solid` so peer dependency resolution is not required.
+> **Important:** do not point `tui.json` directly at a cloned repo. OpenCode provides `solid-js`, `@opentui/solid`, and `@opentui/core` to the plugin at runtime; if the repo's `node_modules` contains its own copies they shadow OpenCode's, creating a second `solid-js` instance. The plugin then registers and runs but renders **nothing** (no error). Build, then load from a clean staging directory (`dist` + `assets` + `package.json`, no `node_modules`).
 
 ## 💬 Slash commands
 
