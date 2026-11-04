@@ -53,7 +53,7 @@ The pet renders inside a fixed 16×6 cell box with overflow clipping so it alway
 | 🐧 Penguin | Slides through your terminal with style |
 | 🍄 Shroom | Fungi friends don't lie — your code is fine |
 
-Or generate a random pet with `opencode-pet generate`!
+Cray renders in its own orange palette; the other curated pets use the terminal's default color. Or generate a random pet with `opencode-pet generate`!
 
 ## 🛠️ CLI reference
 

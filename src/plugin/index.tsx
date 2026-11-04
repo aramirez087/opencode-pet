@@ -8,6 +8,7 @@ import {
   Index,
   type JSX,
 } from "solid-js";
+import { Yoga } from "@opentui/core";
 import type { TuiPluginApi, TuiSlotContext, TuiHostSlotMap } from "@opencode-ai/plugin/tui";
 import {
   findPets,
@@ -197,6 +198,55 @@ const [petClip, setPetClip] = createSignal(false);
 const PET_BORDER_KEY = "opencode-pet:border";
 const PET_CLIP_KEY = "opencode-pet:clip";
 
+function stripAnsi(line: string): string {
+  return line.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+type RenderableLike = {
+  parent?: RenderableLike | null;
+  isDestroyed?: boolean;
+  paddingRight?: number;
+  insertText?: unknown;
+  plainText?: unknown;
+  getChildren?: () => RenderableLike[];
+  getLayoutNode?: () => { getComputedPadding: (edge: Yoga.Edge) => number };
+};
+
+let lastTextarea: RenderableLike | null = null;
+let lastTextareaParent: RenderableLike | null = null;
+let lastBaseRightPadding = 0;
+
+function findPromptTextarea(node: RenderableLike | null | undefined): RenderableLike | undefined {
+  if (!node || node.isDestroyed) return undefined;
+  if (typeof node.insertText === "function" && typeof node.plainText === "string") return node;
+  for (const child of node.getChildren?.() ?? []) {
+    const found = findPromptTextarea(child);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function syncPromptClipPadding(root: RenderableLike, extra: number): void {
+  if (!lastTextarea || lastTextarea.isDestroyed) {
+    const found = findPromptTextarea(root) ?? null;
+    if (found !== lastTextarea) {
+      if (lastTextareaParent && !lastTextareaParent.isDestroyed) {
+        lastTextareaParent.paddingRight = lastBaseRightPadding;
+      }
+      lastTextarea = found;
+      lastTextareaParent = found?.parent ?? null;
+      lastBaseRightPadding = lastTextareaParent?.getLayoutNode?.().getComputedPadding(Yoga.Edge.Right) ?? 2;
+    }
+  }
+
+  const parent = lastTextareaParent;
+  if (!parent || parent.isDestroyed) return;
+
+  const target = lastBaseRightPadding + extra;
+  const current = parent.getLayoutNode?.().getComputedPadding(Yoga.Edge.Right) ?? target;
+  if (current !== target) parent.paddingRight = target;
+}
+
 function PetView(props: {
   api: TuiPluginApi;
   ctx: TuiSlotContext;
@@ -301,6 +351,8 @@ function PetView(props: {
     return clipFrame(lines, PET_WIDTH, PET_HEIGHT);
   });
 
+  const colored = () => activePet()?.manifest.id === "cray-crayfish";
+
   const frameWidth = () => PET_WIDTH + (petBorder() ? 2 : 0);
   const frameHeight = () => PET_HEIGHT + (petBorder() ? 2 : 0);
 
@@ -323,11 +375,15 @@ function PetView(props: {
         <Index each={visibleFrame()}>
           {(line) => (
             <text>
-              <Index each={parseAnsiLine(line())}>
-                {(seg) => (
-                  <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
-                )}
-              </Index>
+              {colored() ? (
+                <Index each={parseAnsiLine(line())}>
+                  {(seg) => (
+                    <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
+                  )}
+                </Index>
+              ) : (
+                stripAnsi(line())
+              )}
             </text>
           )}
         </Index>
@@ -363,6 +419,10 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
     }
   };
   loadSettings();
+
+  const syncClip = (): void => {
+    syncPromptClipPadding(api.renderer.root as unknown as RenderableLike, petClip() ? PET_WIDTH + (petBorder() ? 2 : 0) : 0);
+  };
 
   const safeToast = (message: string, variant: "info" | "success" | "warning" | "error") => {
     try {
@@ -436,6 +496,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
               } catch {
                 // ignore
               }
+              syncClip();
               safeToast(`Pet border ${next ? "on" : "off"}`, "info");
             },
           },
@@ -453,6 +514,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
               } catch {
                 // ignore
               }
+              syncClip();
               safeToast(`Pet clipping ${next ? "on" : "off"}`, "info");
             },
           },
@@ -514,7 +576,21 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
         session_prompt: (
           ctx: TuiSlotContext,
           props: TuiHostSlotMap["session_prompt"],
-        ): JSX.Element => (
+        ): JSX.Element => {
+          onMount(() => {
+            syncClip();
+            const timer = setInterval(syncClip, 200);
+            onCleanup(() => {
+              clearInterval(timer);
+              if (lastTextareaParent && !lastTextareaParent.isDestroyed) {
+                lastTextareaParent.paddingRight = lastBaseRightPadding;
+              }
+              lastTextarea = null;
+              lastTextareaParent = null;
+            });
+          });
+
+          return (
           <box flexDirection="column" width="100%">
             <HostPrompt
               sessionID={props.session_id}
@@ -532,7 +608,8 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
               <PetView api={api} ctx={ctx} sessionID={props.session_id} overlay bottom={4} />
             </Show>
           </box>
-        ),
+          );
+        },
         session_prompt_right: (
           ctx: TuiSlotContext,
           props: TuiHostSlotMap["session_prompt_right"],
