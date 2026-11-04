@@ -201,6 +201,8 @@ function PetView(props: {
   api: TuiPluginApi;
   ctx: TuiSlotContext;
   sessionID: string;
+  overlay?: boolean;
+  bottom?: number;
 }): JSX.Element {
   const [mood, setMood] = createSignal<PetMood>("idle");
   const [visible, setVisible] = createSignal(false);
@@ -302,36 +304,42 @@ function PetView(props: {
   const frameWidth = () => PET_WIDTH + (petBorder() ? 2 : 0);
   const frameHeight = () => PET_HEIGHT + (petBorder() ? 2 : 0);
 
+  const frame = (
+    <box
+      position="absolute"
+      right={0}
+      bottom={props.overlay ? (props.bottom ?? 0) : 0}
+      zIndex={10}
+      flexDirection="column"
+      width={frameWidth()}
+      height={frameHeight()}
+      border={petBorder()}
+      borderStyle="rounded"
+      borderColor={props.ctx.theme.current.border}
+      backgroundColor={petClip() ? props.ctx.theme.current.backgroundElement : undefined}
+      overflow="hidden"
+    >
+      <Show when={visible() && activePet() !== null}>
+        <Index each={visibleFrame()}>
+          {(line) => (
+            <text>
+              <Index each={parseAnsiLine(line())}>
+                {(seg) => (
+                  <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
+                )}
+              </Index>
+            </text>
+          )}
+        </Index>
+      </Show>
+    </box>
+  );
+
+  if (props.overlay) return frame;
+
   return (
     <box width={frameWidth()} height={1} flexShrink={0} alignSelf="flex-end">
-      <box
-        position="absolute"
-        right={0}
-        bottom={0}
-        zIndex={10}
-        flexDirection="column"
-        width={frameWidth()}
-        height={frameHeight()}
-        border={petBorder()}
-        borderStyle="rounded"
-        borderColor={props.ctx.theme.current.border}
-        backgroundColor={petClip() ? props.ctx.theme.current.backgroundElement : undefined}
-        overflow="hidden"
-      >
-        <Show when={visible() && activePet() !== null}>
-          <Index each={visibleFrame()}>
-            {(line) => (
-              <text>
-                <Index each={parseAnsiLine(line())}>
-                  {(seg) => (
-                    <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
-                  )}
-                </Index>
-              </text>
-            )}
-          </Index>
-        </Show>
-      </box>
+      {frame}
     </box>
   );
 }
@@ -507,23 +515,21 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
           ctx: TuiSlotContext,
           props: TuiHostSlotMap["session_prompt"],
         ): JSX.Element => (
-          <box flexDirection="row" width="100%">
-            <box flexGrow={1} flexShrink={1} minWidth={0}>
-              <HostPrompt
-                sessionID={props.session_id}
-                visible={props.visible}
-                disabled={props.disabled}
-                onSubmit={props.on_submit}
-                ref={props.ref}
-                right={
-                  petClip()
-                    ? undefined
-                    : <HostSlot name="session_prompt_right" session_id={props.session_id} />
-                }
-              />
-            </box>
+          <box flexDirection="column" width="100%">
+            <HostPrompt
+              sessionID={props.session_id}
+              visible={props.visible}
+              disabled={props.disabled}
+              onSubmit={props.on_submit}
+              ref={props.ref}
+              right={
+                petClip()
+                  ? undefined
+                  : <HostSlot name="session_prompt_right" session_id={props.session_id} />
+              }
+            />
             <Show when={petClip()}>
-              <PetView api={api} ctx={ctx} sessionID={props.session_id} />
+              <PetView api={api} ctx={ctx} sessionID={props.session_id} overlay bottom={4} />
             </Show>
           </box>
         ),
