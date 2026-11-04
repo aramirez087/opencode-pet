@@ -191,9 +191,18 @@ function moodFps(mood: PetMood, baseFps: number): number {
 }
 
 const [activePet, setActivePet] = createSignal<LoadedPet | null>(null);
+const [petBorder, setPetBorder] = createSignal(false);
+
+const PET_BORDER_KEY = "opencode-pet:border";
 
 const tui = async (api: TuiPluginApi): Promise<void> => {
   const lastError = { message: "" };
+
+  try {
+    setPetBorder(api.kv.get<boolean>(PET_BORDER_KEY, false) === true);
+  } catch {
+    // KV may not be ready yet; keep the default.
+  }
 
   const safeToast = (message: string, variant: "info" | "success" | "warning" | "error") => {
     try {
@@ -254,6 +263,23 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             onSelect: () => generateRandomPet(api, refreshActivePet, safeToast),
           },
           {
+            title: `Pet Border: ${petBorder() ? "On" : "Off"}`,
+            value: "opencode-pet:toggle-border",
+            description: "Toggle a bordered frame that blocks code behind the pet",
+            category: "Pets",
+            slash: { name: "pet-border", aliases: ["pet-clip"] },
+            onSelect: () => {
+              const next = !petBorder();
+              setPetBorder(next);
+              try {
+                api.kv.set(PET_BORDER_KEY, next);
+              } catch {
+                // ignore
+              }
+              safeToast(`Pet border ${next ? "on" : "off"}`, "info");
+            },
+          },
+          {
             title: "Remove Pet...",
             value: "opencode-pet:remove",
             description: "Delete an installed pet from disk",
@@ -306,7 +332,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
     api.slots.register({
       slots: {
         session_prompt_right: (
-          _ctx: TuiSlotContext,
+          ctx: TuiSlotContext,
           props: TuiHostSlotMap["session_prompt_right"],
         ): JSX.Element => {
           const [mood, setMood] = createSignal<PetMood>("idle");
@@ -406,16 +432,23 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             return clipFrame(lines, PET_WIDTH, PET_HEIGHT);
           });
 
+          const frameWidth = () => PET_WIDTH + (petBorder() ? 2 : 0);
+          const frameHeight = () => PET_HEIGHT + (petBorder() ? 2 : 0);
+
           return (
-            <box width={PET_WIDTH} height={1} flexShrink={0}>
+            <box width={frameWidth()} height={1} flexShrink={0}>
               <box
                 position="absolute"
                 right={0}
                 bottom={0}
                 zIndex={10}
                 flexDirection="column"
-                width={PET_WIDTH}
-                height={PET_HEIGHT}
+                width={frameWidth()}
+                height={frameHeight()}
+                border={petBorder()}
+                borderStyle="rounded"
+                borderColor={ctx.theme.current.border}
+                backgroundColor={petBorder() ? ctx.theme.current.backgroundElement : undefined}
                 overflow="hidden"
               >
                 <Show when={visible() && activePet() !== null}>
