@@ -53,6 +53,41 @@ export const SPRITES: SpriteDef[] = [
     ],
   },
   {
+    id: "cray-crayfish",
+    displayName: "Cray",
+    description: "A snappy orange crayfish with a taste for clean code.",
+    fg: "#d97757",
+    accents: {
+      "~": "#f6c6b3",
+    },
+    frames: [
+      [
+        "   ~        ~   ",
+        "  ╲╱      ╲╱    ",
+        "  ██      ██    ",
+        " ▐███▐▛██▜▌███▌ ",
+        "▝▜████████████▛▘",
+        "  ▘▘ ▝▝  ▘▘ ▝▝  ",
+      ].join("\n"),
+      [
+        "   ~        ~   ",
+        "  ╲╱      ╲╱    ",
+        "  ██      ██    ",
+        " ▐███▐████▌███▌ ",
+        "▝▜████████████▛▘",
+        "  ▘▘ ▝▝  ▘▘ ▝▝  ",
+      ].join("\n"),
+      [
+        "   ~        ~   ",
+        "  ╱╲      ╱╲    ",
+        "  ██      ██    ",
+        " ▐███▐▛██▜▌███▌ ",
+        "▝▜████████████▛▘",
+        "   ▘▘▝▝  ▘▘▝▝   ",
+      ].join("\n"),
+    ],
+  },
+  {
     id: "ember-fox",
     displayName: "Ember Fox",
     description: "A clever little fox with a flame-tipped tail.",
@@ -166,7 +201,7 @@ export const SPRITES: SpriteDef[] = [
     fg: "#94a3b8",
     accents: {
       o: "#0ea5e9", O: "#0ea5e9", "*": "#facc15",
-      "-": FACE_ACCENT_DARK, "─": FACE_ACCENT_DARK,
+      "-": FACE_ACCENT_DARK,
     },
     frames: [
       [

@@ -45,22 +45,25 @@
     "url": "git+https://github.com/aramirez087/opencode-pet.git"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
-    "@opentui/core": "^0.2.2",
-    "sharp": "^0.33.0"
+    "@opentui/core": "0.4.5",
+    "sharp": "^0.35.5"
   },
   "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.14.0"
+    "@opencode-ai/plugin": ">=1.18.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.0",
-    "@babel/preset-typescript": "^7.25.0",
-    "@opencode-ai/plugin": "1.14.20",
-    "@opentui/solid": "^0.2.2",
-    "@types/node": "^22.0.0",
-    "babel-preset-solid": "^1.9.0",
-    "esbuild": "^0.25.12",
-    "solid-js": "^1.9.0",
-    "typescript": "^5.8.0"
+    "@babel/core": "^7.29.13",
+    "@babel/preset-typescript": "^7.29.7",
+    "@opencode-ai/plugin": "1.19.5",
+    "@opentui/solid": "0.4.5",
+    "@types/node": "^24.19.2",
+    "babel-preset-solid": "1.9.12",
+    "esbuild": "^0.28.2",
+    "solid-js": "1.9.12",
+    "typescript": "^5.9.3"
   }
 }

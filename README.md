@@ -30,7 +30,7 @@ opencode-pet generate
 
 `opencode-pet` adds a small animated pet companion to [OpenCode](https://github.com/opencode-ai/opencode) that appears to the **right of the session prompt** whenever the AI model is busy thinking. It works by:
 
-1. 🐱 **Curating** a library of hand-designed kawaii sprites (cat, fox, ghost, slime, robot, dragon, bunny, octopus, penguin, mushroom)
+1. 🐱 **Curating** a library of hand-designed kawaii sprites (cat, crayfish, fox, ghost, slime, robot, dragon, bunny, octopus, penguin, mushroom)
 2. 🎨 **Converting** Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into terminal-friendly frames (legacy path)
 3. ✨ **Rendering** frames in the OpenCode TUI using Unicode block characters (`▀▄█`) with full ANSI color support
 4. 💫 **Animating** in sync with the model's busy/idle state
@@ -42,6 +42,7 @@ The pet renders inside a fixed 16×6 cell box with overflow clipping so it alway
 | Pet | Vibe |
 |-----|------|
 | 🐱 Mochi Cat | Chill, observant, always watching your code |
+| 🦞 Cray | A snappy orange crayfish with a taste for clean code |
 | 🦊 Pixel Fox | Sly and curious, loves a good algorithm |
 | 👻 Tiny Ghost | Boo! Just floating by, no harm intended |
 | 🍡 Blobby Slime | Wobbly, cheerful, loves terminal colors |
@@ -160,8 +161,8 @@ Because waiting for an AI to think shouldn't feel like staring at an empty scree
 
 ## 📋 Requirements
 
-- **Node.js** >= 18 (for CLI)
-- **OpenCode** >= 1.14.0 (for plugin)
+- **Node.js** >= 20.9 (for CLI)
+- **OpenCode** >= 1.18.0 (for plugin)
 
 ## 📄 License
 

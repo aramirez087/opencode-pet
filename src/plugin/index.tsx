@@ -16,6 +16,7 @@ import {
   getActivePetId,
   setActivePetId,
 } from "./pet-loader.js";
+import type { KvLike, KvWriter } from "./pet-loader.js";
 import type { LoadedPet } from "./pet-loader.js";
 import type { PetTemplate } from "../converter/generator.js";
 import { PET_HEIGHT, PET_WIDTH, PETS_DIR } from "../types.js";
@@ -231,7 +232,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
   ensureSpritesInstalled(api.kv, refreshActivePet, safeToast).catch(() => {});
 
   try {
-    api.command.register(() => {
+    api.command?.register(() => {
       try {
         const pets = findPets();
         const activeId = getActivePetId(api.kv);
@@ -406,25 +407,31 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
           });
 
           return (
-            <box
-              flexDirection="column"
-              width={PET_WIDTH}
-              height={PET_HEIGHT}
-              overflow="hidden"
-            >
-              <Show when={visible() && activePet() !== null}>
-                <Index each={visibleFrame()}>
-                  {(line) => (
-                    <text>
-                      <Index each={parseAnsiLine(line())}>
-                        {(seg) => (
-                          <span fg={seg().fg} bg={seg().bg}>{seg().text}</span>
-                        )}
-                      </Index>
-                    </text>
-                  )}
-                </Index>
-              </Show>
+            <box width={PET_WIDTH} height={1} flexShrink={0}>
+              <box
+                position="absolute"
+                right={0}
+                bottom={0}
+                zIndex={10}
+                flexDirection="column"
+                width={PET_WIDTH}
+                height={PET_HEIGHT}
+                overflow="hidden"
+              >
+                <Show when={visible() && activePet() !== null}>
+                  <Index each={visibleFrame()}>
+                    {(line) => (
+                      <text>
+                        <Index each={parseAnsiLine(line())}>
+                          {(seg) => (
+                            <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
+                          )}
+                        </Index>
+                      </text>
+                    )}
+                  </Index>
+                </Show>
+              </box>
             </box>
           );
         },
@@ -590,7 +597,7 @@ async function generateRandomPet(api: TuiPluginApi, refresh: () => void, toast: 
   }
 }
 
-async function ensureSpritesInstalled(kv: KvWriter | undefined | null, refresh: () => void, toast: ToastFn): Promise<void> {
+async function ensureSpritesInstalled(kv: (KvLike & KvWriter) | undefined | null, refresh: () => void, toast: ToastFn): Promise<void> {
   try {
     const { mkdirSync, writeFileSync, readdirSync, existsSync } = await import("node:fs");
     const { join } = await import("node:path");
