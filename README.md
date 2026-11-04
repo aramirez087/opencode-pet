@@ -118,7 +118,8 @@ To run a local build, point `tui.json` at a directory laid out like an install *
 | `/pet` | Open the pet picker to switch active pet |
 | `/pet-generate` | Procedurally generate a new pet |
 | `/pet-remove` | Open a picker to delete an installed pet |
-| `/pet-border` | Toggle a bordered pet frame that blocks code behind it |
+| `/pet-border` | Toggle a rounded border around the pet |
+| `/pet-clip` | Clip the prompt so text cannot run behind the pet |
 | `/pet-debug` | Show diagnostic info (pet count, active id, KV status) |
 
 ## 🏗️ Architecture
