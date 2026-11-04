@@ -30,7 +30,7 @@ opencode-pet generate
 
 `opencode-pet` adds a small animated pet companion to [OpenCode](https://github.com/opencode-ai/opencode) that appears to the **right of the session prompt** whenever the AI model is busy thinking. It works by:
 
-1. 🐱 **Curating** a library of hand-designed kawaii sprites (cat, fox, ghost, slime, robot, dragon, bunny, octopus, penguin, mushroom)
+1. 🐱 **Curating** a library of hand-designed kawaii sprites (cat, crayfish, fox, ghost, slime, robot, dragon, bunny, octopus, penguin, mushroom)
 2. 🎨 **Converting** Codex spritesheet pets (`pet.json` + `spritesheet.webp`) into terminal-friendly frames (legacy path)
 3. ✨ **Rendering** frames in the OpenCode TUI using Unicode block characters (`▀▄█`) with full ANSI color support
 4. 💫 **Animating** in sync with the model's busy/idle state
@@ -42,6 +42,7 @@ The pet renders inside a fixed 16×6 cell box with overflow clipping so it alway
 | Pet | Vibe |
 |-----|------|
 | 🐱 Mochi Cat | Chill, observant, always watching your code |
+| 🦞 Cray | A snappy orange crayfish with a taste for clean code |
 | 🦊 Pixel Fox | Sly and curious, loves a good algorithm |
 | 👻 Tiny Ghost | Boo! Just floating by, no harm intended |
 | 🍡 Blobby Slime | Wobbly, cheerful, loves terminal colors |
@@ -52,7 +53,7 @@ The pet renders inside a fixed 16×6 cell box with overflow clipping so it alway
 | 🐧 Penguin | Slides through your terminal with style |
 | 🍄 Shroom | Fungi friends don't lie — your code is fine |
 
-Or generate a random pet with `opencode-pet generate`!
+Cray renders in its own orange palette; the other curated pets use the terminal's default color. Or generate a random pet with `opencode-pet generate`!
 
 ## 🛠️ CLI reference
 
@@ -117,6 +118,8 @@ To run a local build, point `tui.json` at a directory laid out like an install *
 | `/pet` | Open the pet picker to switch active pet |
 | `/pet-generate` | Procedurally generate a new pet |
 | `/pet-remove` | Open a picker to delete an installed pet |
+| `/pet-border` | Toggle a rounded border around the pet |
+| `/pet-clip` | Clip the prompt so text cannot run behind the pet |
 | `/pet-debug` | Show diagnostic info (pet count, active id, KV status) |
 
 ## 🏗️ Architecture
@@ -160,8 +163,8 @@ Because waiting for an AI to think shouldn't feel like staring at an empty scree
 
 ## 📋 Requirements
 
-- **Node.js** >= 18 (for CLI)
-- **OpenCode** >= 1.14.0 (for plugin)
+- **Node.js** >= 20.9 (for CLI)
+- **OpenCode** >= 1.18.0 (for plugin)
 
 ## 📄 License
 

@@ -8,6 +8,7 @@ import {
   Index,
   type JSX,
 } from "solid-js";
+import { Yoga } from "@opentui/core";
 import type { TuiPluginApi, TuiSlotContext, TuiHostSlotMap } from "@opencode-ai/plugin/tui";
 import {
   findPets,
@@ -16,6 +17,7 @@ import {
   getActivePetId,
   setActivePetId,
 } from "./pet-loader.js";
+import type { KvLike, KvWriter } from "./pet-loader.js";
 import type { LoadedPet } from "./pet-loader.js";
 import type { PetTemplate } from "../converter/generator.js";
 import { PET_HEIGHT, PET_WIDTH, PETS_DIR } from "../types.js";
@@ -190,9 +192,233 @@ function moodFps(mood: PetMood, baseFps: number): number {
 }
 
 const [activePet, setActivePet] = createSignal<LoadedPet | null>(null);
+const [petBorder, setPetBorder] = createSignal(false);
+const [petClip, setPetClip] = createSignal(false);
+
+const PET_BORDER_KEY = "opencode-pet:border";
+const PET_CLIP_KEY = "opencode-pet:clip";
+
+function stripAnsi(line: string): string {
+  return line.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+type RenderableLike = {
+  parent?: RenderableLike | null;
+  isDestroyed?: boolean;
+  paddingRight?: number;
+  insertText?: unknown;
+  plainText?: unknown;
+  getChildren?: () => RenderableLike[];
+  getLayoutNode?: () => { getComputedPadding: (edge: Yoga.Edge) => number };
+};
+
+let lastTextarea: RenderableLike | null = null;
+let lastTextareaParent: RenderableLike | null = null;
+let lastBaseRightPadding = 0;
+
+function findPromptTextarea(node: RenderableLike | null | undefined): RenderableLike | undefined {
+  if (!node || node.isDestroyed) return undefined;
+  if (typeof node.insertText === "function" && typeof node.plainText === "string") return node;
+  for (const child of node.getChildren?.() ?? []) {
+    const found = findPromptTextarea(child);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function syncPromptClipPadding(root: RenderableLike, extra: number): void {
+  if (!lastTextarea || lastTextarea.isDestroyed) {
+    const found = findPromptTextarea(root) ?? null;
+    if (found !== lastTextarea) {
+      if (lastTextareaParent && !lastTextareaParent.isDestroyed) {
+        lastTextareaParent.paddingRight = lastBaseRightPadding;
+      }
+      lastTextarea = found;
+      lastTextareaParent = found?.parent ?? null;
+      lastBaseRightPadding = lastTextareaParent?.getLayoutNode?.().getComputedPadding(Yoga.Edge.Right) ?? 2;
+    }
+  }
+
+  const parent = lastTextareaParent;
+  if (!parent || parent.isDestroyed) return;
+
+  const target = lastBaseRightPadding + extra;
+  const current = parent.getLayoutNode?.().getComputedPadding(Yoga.Edge.Right) ?? target;
+  if (current !== target) parent.paddingRight = target;
+}
+
+function PetView(props: {
+  api: TuiPluginApi;
+  ctx: TuiSlotContext;
+  sessionID: string;
+  overlay?: boolean;
+  bottom?: number;
+}): JSX.Element {
+  const [mood, setMood] = createSignal<PetMood>("idle");
+  const [visible, setVisible] = createSignal(false);
+  const [frameIdx, setFrameIdx] = createSignal(0);
+
+  let moodTimer: ReturnType<typeof setTimeout> | undefined;
+  let animTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function clearTimers(): void {
+    if (moodTimer) { clearTimeout(moodTimer); moodTimer = undefined; }
+    if (animTimer) { clearTimeout(animTimer); animTimer = undefined; }
+  }
+
+  function startAnimation(fps: number): void {
+    if (animTimer) { clearTimeout(animTimer); animTimer = undefined; }
+    const delay = Math.max(50, Math.floor(1000 / fps));
+    let stopped = false;
+
+    function tick(): void {
+      if (stopped) return;
+      const pet = activePet();
+      if (!pet || pet.manifest.frames.length === 0) return;
+      setFrameIdx((i) => (i + 1) % pet.manifest.frames.length);
+      animTimer = setTimeout(tick, delay);
+    }
+    animTimer = setTimeout(tick, delay);
+  }
+
+  function transitionMood(next: PetMood): void {
+    if (moodTimer) { clearTimeout(moodTimer); moodTimer = undefined; }
+    setMood(next);
+
+    const pet = activePet();
+    if (!pet || pet.manifest.frames.length === 0) {
+      setVisible(false);
+      clearTimers();
+      return;
+    }
+
+    setVisible(true);
+    const baseFps = detectTerminalFps();
+    const fps = moodFps(next, baseFps);
+    startAnimation(fps);
+
+    if (next === "happy" || next === "confused") {
+      moodTimer = setTimeout(() => transitionMood("idle"), MOOD_REACTION_LINGER);
+    } else if (next === "watching") {
+      moodTimer = setTimeout(() => transitionMood("idle"), TYPING_LINGER);
+    }
+  }
+
+  onMount(() => {
+    const unsubStatus = props.api.event.on("session.status", (event) => {
+      if (event.properties.sessionID !== props.sessionID) return;
+      const type = event.properties.status.type as string;
+      if (type === "busy") {
+        transitionMood("thinking");
+      } else if (type === "error") {
+        transitionMood("confused");
+      } else {
+        transitionMood("happy");
+      }
+    });
+    const unsubIdle = props.api.event.on("session.idle", (event) => {
+      if (event.properties.sessionID !== props.sessionID) return;
+      if (mood() === "thinking") {
+        transitionMood("idle");
+      }
+    });
+    const unsubPrompt = props.api.event.on("tui.prompt.append", () => {
+      if (mood() !== "thinking") {
+        transitionMood("watching");
+      }
+    });
+    onCleanup(() => {
+      unsubStatus();
+      unsubIdle();
+      unsubPrompt();
+      clearTimers();
+    });
+
+    transitionMood("idle");
+  });
+
+  const currentFrame = createMemo<string[]>(() => {
+    const pet = activePet();
+    if (!pet) return [];
+    const frames = pet.manifest.frames;
+    if (frames.length === 0) return [];
+    return frames[frameIdx() % frames.length] ?? [];
+  });
+
+  const visibleFrame = createMemo<string[]>(() => {
+    const lines = currentFrame();
+    if (lines.length === 0) return lines;
+    return clipFrame(lines, PET_WIDTH, PET_HEIGHT);
+  });
+
+  const frame = (
+    <box
+      position="absolute"
+      right={0}
+      bottom={props.overlay ? (props.bottom ?? 0) : 0}
+      zIndex={10}
+      flexDirection="column"
+      width={PET_WIDTH + (petBorder() ? 2 : 0)}
+      height={PET_HEIGHT + (petBorder() ? 2 : 0)}
+      border={petBorder()}
+      borderStyle="rounded"
+      borderColor={props.ctx.theme.current.border}
+      backgroundColor={petClip() ? props.ctx.theme.current.backgroundElement : undefined}
+      overflow="hidden"
+    >
+      <Show when={visible() && activePet() !== null}>
+        <Index each={visibleFrame()}>
+          {(line) => (
+            <text>
+              <Show
+                when={activePet()?.manifest.id === "cray-crayfish"}
+                fallback={stripAnsi(line())}
+              >
+                <Index each={parseAnsiLine(line())}>
+                  {(seg) => (
+                    <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
+                  )}
+                </Index>
+              </Show>
+            </text>
+          )}
+        </Index>
+      </Show>
+    </box>
+  );
+
+  if (props.overlay) return frame;
+
+  return (
+    <box width={PET_WIDTH + (petBorder() ? 2 : 0)} height={1} flexShrink={0} alignSelf="flex-end">
+      {frame}
+    </box>
+  );
+}
 
 const tui = async (api: TuiPluginApi): Promise<void> => {
   const lastError = { message: "" };
+
+  let settingsLoaded = false;
+  const loadSettings = (): void => {
+    if (settingsLoaded) return;
+    try {
+      if (!api.kv.ready) {
+        setTimeout(loadSettings, 50);
+        return;
+      }
+      setPetBorder(api.kv.get<boolean>(PET_BORDER_KEY, false) === true);
+      setPetClip(api.kv.get<boolean>(PET_CLIP_KEY, false) === true);
+      settingsLoaded = true;
+    } catch {
+      setTimeout(loadSettings, 50);
+    }
+  };
+  loadSettings();
+
+  const syncClip = (): void => {
+    syncPromptClipPadding(api.renderer.root as unknown as RenderableLike, petClip() ? PET_WIDTH + (petBorder() ? 2 : 0) : 0);
+  };
 
   const safeToast = (message: string, variant: "info" | "success" | "warning" | "error") => {
     try {
@@ -231,7 +457,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
   ensureSpritesInstalled(api.kv, refreshActivePet, safeToast).catch(() => {});
 
   try {
-    api.command.register(() => {
+    api.command?.register(() => {
       try {
         const pets = findPets();
         const activeId = getActivePetId(api.kv);
@@ -251,6 +477,42 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
             category: "Pets",
             slash: { name: "pet-generate", aliases: ["pet-new"] },
             onSelect: () => generateRandomPet(api, refreshActivePet, safeToast),
+          },
+          {
+            title: `Pet Border: ${petBorder() ? "On" : "Off"}`,
+            value: "opencode-pet:toggle-border",
+            description: "Toggle a rounded border around the pet",
+            category: "Pets",
+            slash: { name: "pet-border" },
+            onSelect: () => {
+              const next = !petBorder();
+              setPetBorder(next);
+              try {
+                api.kv.set(PET_BORDER_KEY, next);
+              } catch {
+                // ignore
+              }
+              syncClip();
+              safeToast(`Pet border ${next ? "on" : "off"}`, "info");
+            },
+          },
+          {
+            title: `Pet Clip: ${petClip() ? "On" : "Off"}`,
+            value: "opencode-pet:toggle-clip",
+            description: "Clip the prompt so text cannot run behind the pet",
+            category: "Pets",
+            slash: { name: "pet-clip" },
+            onSelect: () => {
+              const next = !petClip();
+              setPetClip(next);
+              try {
+                api.kv.set(PET_CLIP_KEY, next);
+              } catch {
+                // ignore
+              }
+              syncClip();
+              safeToast(`Pet clipping ${next ? "on" : "off"}`, "info");
+            },
           },
           {
             title: "Remove Pet...",
@@ -302,132 +564,56 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
   }
 
   try {
+    const HostPrompt = api.ui.Prompt;
+    const HostSlot = api.ui.Slot;
+
     api.slots.register({
       slots: {
-        session_prompt_right: (
-          _ctx: TuiSlotContext,
-          props: TuiHostSlotMap["session_prompt_right"],
+        session_prompt: (
+          ctx: TuiSlotContext,
+          props: TuiHostSlotMap["session_prompt"],
         ): JSX.Element => {
-          const [mood, setMood] = createSignal<PetMood>("idle");
-          const [visible, setVisible] = createSignal(false);
-          const [frameIdx, setFrameIdx] = createSignal(0);
-
-          let moodTimer: ReturnType<typeof setTimeout> | undefined;
-          let animTimer: ReturnType<typeof setTimeout> | undefined;
-
-          function clearTimers(): void {
-            if (moodTimer) { clearTimeout(moodTimer); moodTimer = undefined; }
-            if (animTimer) { clearTimeout(animTimer); animTimer = undefined; }
-          }
-
-          function startAnimation(fps: number): void {
-            if (animTimer) { clearTimeout(animTimer); animTimer = undefined; }
-            const delay = Math.max(50, Math.floor(1000 / fps));
-            let stopped = false;
-
-            function tick(): void {
-              if (stopped) return;
-              const pet = activePet();
-              if (!pet || pet.manifest.frames.length === 0) return;
-              setFrameIdx((i) => (i + 1) % pet.manifest.frames.length);
-              animTimer = setTimeout(tick, delay);
-            }
-            animTimer = setTimeout(tick, delay);
-          }
-
-          function transitionMood(next: PetMood): void {
-            if (moodTimer) { clearTimeout(moodTimer); moodTimer = undefined; }
-            setMood(next);
-
-            const pet = activePet();
-            if (!pet || pet.manifest.frames.length === 0) {
-              setVisible(false);
-              clearTimers();
-              return;
-            }
-
-            setVisible(true);
-            const baseFps = detectTerminalFps();
-            const fps = moodFps(next, baseFps);
-            startAnimation(fps);
-
-            if (next === "happy" || next === "confused") {
-              moodTimer = setTimeout(() => transitionMood("idle"), MOOD_REACTION_LINGER);
-            } else if (next === "watching") {
-              moodTimer = setTimeout(() => transitionMood("idle"), TYPING_LINGER);
-            }
-          }
-
           onMount(() => {
-            const unsubStatus = api.event.on("session.status", (event) => {
-              if (event.properties.sessionID !== props.session_id) return;
-              const type = event.properties.status.type as string;
-              if (type === "busy") {
-                transitionMood("thinking");
-              } else if (type === "error") {
-                transitionMood("confused");
-              } else {
-                transitionMood("happy");
-              }
-            });
-            const unsubIdle = api.event.on("session.idle", (event) => {
-              if (event.properties.sessionID !== props.session_id) return;
-              if (mood() === "thinking") {
-                transitionMood("idle");
-              }
-            });
-            const unsubPrompt = api.event.on("tui.prompt.append", () => {
-              if (mood() !== "thinking") {
-                transitionMood("watching");
-              }
-            });
+            syncClip();
+            const timer = setInterval(syncClip, 200);
             onCleanup(() => {
-              unsubStatus();
-              unsubIdle();
-              unsubPrompt();
-              clearTimers();
+              clearInterval(timer);
+              if (lastTextareaParent && !lastTextareaParent.isDestroyed) {
+                lastTextareaParent.paddingRight = lastBaseRightPadding;
+              }
+              lastTextarea = null;
+              lastTextareaParent = null;
             });
-
-            transitionMood("idle");
-          });
-
-          const currentFrame = createMemo<string[]>(() => {
-            const pet = activePet();
-            if (!pet) return [];
-            const frames = pet.manifest.frames;
-            if (frames.length === 0) return [];
-            return frames[frameIdx() % frames.length] ?? [];
-          });
-
-          const visibleFrame = createMemo<string[]>(() => {
-            const lines = currentFrame();
-            if (lines.length === 0) return lines;
-            return clipFrame(lines, PET_WIDTH, PET_HEIGHT);
           });
 
           return (
-            <box
-              flexDirection="column"
-              width={PET_WIDTH}
-              height={PET_HEIGHT}
-              overflow="hidden"
-            >
-              <Show when={visible() && activePet() !== null}>
-                <Index each={visibleFrame()}>
-                  {(line) => (
-                    <text>
-                      <Index each={parseAnsiLine(line())}>
-                        {(seg) => (
-                          <span fg={seg().fg} bg={seg().bg}>{seg().text}</span>
-                        )}
-                      </Index>
-                    </text>
-                  )}
-                </Index>
-              </Show>
-            </box>
+          <box flexDirection="column" width="100%">
+            <HostPrompt
+              sessionID={props.session_id}
+              visible={props.visible}
+              disabled={props.disabled}
+              onSubmit={props.on_submit}
+              ref={props.ref}
+              right={
+                petClip()
+                  ? undefined
+                  : <HostSlot name="session_prompt_right" session_id={props.session_id} />
+              }
+            />
+            <Show when={petClip()}>
+              <PetView api={api} ctx={ctx} sessionID={props.session_id} overlay bottom={2} />
+            </Show>
+          </box>
           );
         },
+        session_prompt_right: (
+          ctx: TuiSlotContext,
+          props: TuiHostSlotMap["session_prompt_right"],
+        ): JSX.Element => (
+          <Show when={!petClip()}>
+            <PetView api={api} ctx={ctx} sessionID={props.session_id} />
+          </Show>
+        ),
       },
     });
   } catch (err) {
@@ -590,7 +776,7 @@ async function generateRandomPet(api: TuiPluginApi, refresh: () => void, toast: 
   }
 }
 
-async function ensureSpritesInstalled(kv: KvWriter | undefined | null, refresh: () => void, toast: ToastFn): Promise<void> {
+async function ensureSpritesInstalled(kv: (KvLike & KvWriter) | undefined | null, refresh: () => void, toast: ToastFn): Promise<void> {
   try {
     const { mkdirSync, writeFileSync, readdirSync, existsSync } = await import("node:fs");
     const { join } = await import("node:path");

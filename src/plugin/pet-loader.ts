@@ -89,12 +89,12 @@ export function loadBundledPet(): LoadedPet | null {
 
 const ACTIVE_PET_KEY = "opencode-pet:active";
 
-interface KvLike {
+export interface KvLike {
   get: <T = unknown>(key: string, fallback?: T) => T;
   readonly ready?: boolean;
 }
 
-interface KvWriter {
+export interface KvWriter {
   set: (key: string, value: unknown) => void;
   readonly ready?: boolean;
 }
