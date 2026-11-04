@@ -351,11 +351,6 @@ function PetView(props: {
     return clipFrame(lines, PET_WIDTH, PET_HEIGHT);
   });
 
-  const colored = () => activePet()?.manifest.id === "cray-crayfish";
-
-  const frameWidth = () => PET_WIDTH + (petBorder() ? 2 : 0);
-  const frameHeight = () => PET_HEIGHT + (petBorder() ? 2 : 0);
-
   const frame = (
     <box
       position="absolute"
@@ -363,8 +358,8 @@ function PetView(props: {
       bottom={props.overlay ? (props.bottom ?? 0) : 0}
       zIndex={10}
       flexDirection="column"
-      width={frameWidth()}
-      height={frameHeight()}
+      width={PET_WIDTH + (petBorder() ? 2 : 0)}
+      height={PET_HEIGHT + (petBorder() ? 2 : 0)}
       border={petBorder()}
       borderStyle="rounded"
       borderColor={props.ctx.theme.current.border}
@@ -375,15 +370,16 @@ function PetView(props: {
         <Index each={visibleFrame()}>
           {(line) => (
             <text>
-              {colored() ? (
+              <Show
+                when={activePet()?.manifest.id === "cray-crayfish"}
+                fallback={stripAnsi(line())}
+              >
                 <Index each={parseAnsiLine(line())}>
                   {(seg) => (
                     <span style={{ fg: seg().fg, bg: seg().bg }}>{seg().text}</span>
                   )}
                 </Index>
-              ) : (
-                stripAnsi(line())
-              )}
+              </Show>
             </text>
           )}
         </Index>
@@ -394,7 +390,7 @@ function PetView(props: {
   if (props.overlay) return frame;
 
   return (
-    <box width={frameWidth()} height={1} flexShrink={0} alignSelf="flex-end">
+    <box width={PET_WIDTH + (petBorder() ? 2 : 0)} height={1} flexShrink={0} alignSelf="flex-end">
       {frame}
     </box>
   );
@@ -605,7 +601,7 @@ const tui = async (api: TuiPluginApi): Promise<void> => {
               }
             />
             <Show when={petClip()}>
-              <PetView api={api} ctx={ctx} sessionID={props.session_id} overlay bottom={4} />
+              <PetView api={api} ctx={ctx} sessionID={props.session_id} overlay bottom={2} />
             </Show>
           </box>
           );
